@@ -1,0 +1,33 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=8,walltime=24:00:00
+#PBS -N app-dwi-to-t1-nonlinear
+
+function json_arr_to_bash_list {
+    local v=$@
+    if [[ $v =~ \[.*\] ]]; then
+        v=$(echo $v | tr -d '\[\],')  
+    fi
+    echo $v
+}
+for prm in $(jq -r 'keys[]' config.json | grep -Ev ^_); do
+    val=$(json_arr_to_bash_list $(jq -r ".$prm" config.json))
+    eval "$prm=( $val )"
+done
+
+fsdir=$(dirname $freesurfer)
+sub=$(jq -r "._inputs[0].meta.subject" config.json | tr -d "_")
+mv $freesurfer $fsdir/$sub
+
+singularity run -e \
+    docker://katealpert/hrsc:v0 \
+    /bin/bash ./run_HRSC.sh $fsdir $sub $dwi
+res=$?
+
+if [[ $res == 0 ]]; then
+    mkdir output
+    mv $fsdir/$sub/dti/*mat output/
+    rm -rf $fsdir/$sub
+fi
+
+#exit code from the last command (singularity) will be used.
+exit $res
