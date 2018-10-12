@@ -9,10 +9,18 @@ function json_arr_to_bash_list {
     fi
     echo $v
 }
+
+function get_full_path {
+    readlink -f -m -n "$1"
+}
+
 for prm in $(jq -r 'keys[]' config.json | grep -Ev ^_); do
     val=$(json_arr_to_bash_list $(jq -r ".$prm" config.json))
     eval "$prm=( $val )"
 done
+
+freesurfer=$(get_full_path $freesurfer)
+dwi=$(get_full_path $dwi)
 
 fsdir=$(dirname $freesurfer)
 sub=$(jq -r "._inputs[0].meta.subject" config.json | tr -d "_")
@@ -20,10 +28,10 @@ mv $freesurfer $fsdir/$sub
 
 #relocate & rename as HRSC code expects
 mkdir -p $fsdir/$sub/dti
-for each in $(dirname $dwi)/*; do
+for each in $(dirname $dwi)/dwi*; do
     #link into expected location, remove trailing "s" from bval/bvec filenames
     ln -sf $each $fsdir/$sub/dti/$(echo $(basename $each) | \
-        sed -e 's/\/dwi\./\/dti\./' -e 's/s$//')
+        sed -e 's/dwi\./dti\./' -e 's/s$//')
 done
 
 #have to create dti_mask.nii.gz, not part of HRSC code
