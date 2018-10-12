@@ -1,6 +1,6 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=8,walltime=24:00:00
-#PBS -N app-dwi-to-t1-nonlinear
+#PBS -l nodes=1:ppn=8,walltime=48:00:00,mem=24gb
+#PBS -N app-hrsc
 
 function json_arr_to_bash_list {
     local v=$@
@@ -18,13 +18,32 @@ fsdir=$(dirname $freesurfer)
 sub=$(jq -r "._inputs[0].meta.subject" config.json | tr -d "_")
 mv $freesurfer $fsdir/$sub
 
+#relocate & rename as HRSC code expects
+mkdir -p $fsdir/$sub/dti
+for each in $(dirname $dwi)/*; do
+    #link into expected location, remove trailing "s" from bval/bvec filenames
+    ln -sf $each $fsdir/$sub/dti/$(echo $(basename $each) | \
+        sed -e 's/\/dwi\./\/dti\./' -e 's/s$//')
+done
+
+#have to create dti_mask.nii.gz, not part of HRSC code
+cat>prep_and_run_HRSC.sh<<EOF
+#!/bin/bash
+pushd $fsdir/$sub/dti
+dwi2mask -fslgrad dti.bvec dti.bval dti.nii.gz dti_mask.nii.gz
+popd
+
+run_HRSC.sh $fsdir $sub
+EOF
+
 singularity run -e \
     docker://katealpert/hrsc:v0 \
-    /bin/bash ./run_HRSC.sh $fsdir $sub $dwi
+    /bin/bash ./prep_and_run_HRSC.sh
 res=$?
 
 if [[ $res == 0 ]]; then
     mkdir output
+    #incidence matrices registered to the common surface space
     mv $fsdir/$sub/dti/*mat output/
     rm -rf $fsdir/$sub
 fi
