@@ -24,6 +24,7 @@ dwi=$(get_full_path $dwi)
 
 fsdir=$(dirname $freesurfer)
 sub=$(jq -r "._inputs[0].meta.subject" config.json | tr -d "_")
+rm -rf $fsdir/$sub
 mv $freesurfer $fsdir/$sub
 
 #relocate & rename as HRSC code expects
