@@ -51,10 +51,9 @@ singularity run -e \
 res=$?
 
 if [[ $res == 0 ]]; then
-    mkdir output
     #incidence matrices registered to the common surface space
-    mv $fsdir/$sub/dti/*mat output/
-    rm -rf $fsdir/$sub
+    mv $fsdir/$sub/connectome/incidence_matrix output
+    #rm -rf $fsdir/$sub/dti $fsdir/$sub/connectome
 fi
 
 #exit code from the last command (singularity) will be used.
